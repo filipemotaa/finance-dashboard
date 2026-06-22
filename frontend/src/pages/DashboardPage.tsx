@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, Target, DollarSign, AlertTriangle, CheckCircle, Info, AlertCircle, RefreshCw } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, Target, DollarSign, AlertTriangle, CheckCircle, Info, AlertCircle, RefreshCw, CreditCard, Calculator } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts'
 import api from '../lib/api'
 import { fmt, fmtMonth, currentMonth } from '../lib/utils'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 interface Summary { income: number; expense: number; balance: number; byCategory: any[]; trend: any[] }
@@ -205,6 +206,53 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+          {/* Fatura widget */}
+          {summary && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-indigo-500" />
+                  Fatura do Mês
+                </h3>
+                <Link to="/fatura" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                  <Calculator className="w-3 h-3" />
+                  Calculadora
+                </Link>
+              </div>
+              <div className="flex items-end justify-between mb-3">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Total de despesas</p>
+                  <p className="text-3xl font-bold text-red-500">{fmt(summary.expense)}</p>
+                </div>
+                {summary.income > 0 && (
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400 mb-1">Comprometido</p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      {Math.round((summary.expense / summary.income) * 100)}% da renda
+                    </p>
+                  </div>
+                )}
+              </div>
+              {summary.income > 0 && (
+                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.min((summary.expense / summary.income) * 100, 100)}%`,
+                      background: summary.expense / summary.income > 0.8 ? '#ef4444' : summary.expense / summary.income > 0.6 ? '#f59e0b' : '#6366f1'
+                    }}
+                  />
+                </div>
+              )}
+              {summary.income > 0 && (
+                <div className="mt-3 flex justify-between text-xs text-gray-400">
+                  <span>Disponivel: <span className="font-medium text-green-600">{fmt(Math.max(summary.income - summary.expense, 0))}</span></span>
+                  <span>Renda: {fmt(summary.income)}</span>
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </>
       )}
