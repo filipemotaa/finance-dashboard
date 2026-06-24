@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, PiggyBank, Target, TrendingUp, History, BarChart3, Tag, RefreshCw, X, Wallet, Calculator } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, PiggyBank, Target, TrendingUp, History, BarChart3, Tag, RefreshCw, X, Wallet, Calculator, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const nav = [
@@ -14,6 +14,7 @@ const nav = [
   { to: '/categories', icon: Tag, label: 'Categorias' },
   { to: '/recurring', icon: RefreshCw, label: 'Recorrências' },
   { to: '/fatura', icon: Calculator, label: 'Calculadora Fatura' },
+  { to: '/dividas', icon: Users, label: 'Dívidas' },
 ]
 
 export default function Sidebar({ onClose }: { onClose: () => void }) {

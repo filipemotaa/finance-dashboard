@@ -14,6 +14,7 @@ import ReportsPage from './pages/ReportsPage'
 import CategoriesPage from './pages/CategoriesPage'
 import RecurringPage from './pages/RecurringPage'
 import FaturaPage from './pages/FaturaPage'
+import DividasPage from './pages/DividasPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="categories" element={<CategoriesPage />} />
               <Route path="recurring" element={<RecurringPage />} />
               <Route path="fatura" element={<FaturaPage />} />
+              <Route path="dividas" element={<DividasPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

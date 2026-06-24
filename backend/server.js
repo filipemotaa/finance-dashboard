@@ -99,6 +99,26 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+
+    CREATE TABLE IF NOT EXISTS debts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      creditor TEXT NOT NULL,
+      description TEXT,
+      total_amount NUMERIC NOT NULL,
+      due_date TEXT,
+      paid INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS debt_payments (
+      id SERIAL PRIMARY KEY,
+      debt_id INTEGER NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
+      amount NUMERIC NOT NULL,
+      date TEXT NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   console.log('✅ Banco de dados inicializado');
 }
 
@@ -466,6 +486,87 @@ app.get('/api/insights', authMiddleware, async (req, res) => {
     else if (pct >= 80) insights.push({ type: 'warning', text: `Você já utilizou ${pct.toFixed(0)}% do orçamento de ${b.name}.` });
   }
   res.json(insights);
+});
+
+
+// ─── DEBTS ───────────────────────────────────────────────────────────────────
+
+app.get('/api/debts', authMiddleware, async (req, res) => {
+  const debts = await getAll(
+    `SELECT d.*, COALESCE(SUM(p.amount), 0) as paid_amount
+     FROM debts d
+     LEFT JOIN debt_payments p ON p.debt_id = d.id
+     WHERE d.user_id = $1
+     GROUP BY d.id
+     ORDER BY d.paid ASC, d.created_at DESC`,
+    [req.userId]
+  );
+  res.json(debts);
+});
+
+app.post('/api/debts', authMiddleware, async (req, res) => {
+  const { creditor, description, total_amount, due_date } = req.body;
+  if (!creditor || !total_amount) return res.status(400).json({ error: 'Credor e valor são obrigatórios' });
+  const row = await getOne(
+    'INSERT INTO debts (user_id, creditor, description, total_amount, due_date) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+    [req.userId, creditor, description || null, total_amount, due_date || null]
+  );
+  res.json({ ...row, paid_amount: 0 });
+});
+
+app.put('/api/debts/:id', authMiddleware, async (req, res) => {
+  const { creditor, description, total_amount, due_date, paid } = req.body;
+  const row = await getOne(
+    `UPDATE debts SET creditor=COALESCE($1,creditor), description=COALESCE($2,description),
+     total_amount=COALESCE($3,total_amount), due_date=COALESCE($4,due_date), paid=COALESCE($5,paid)
+     WHERE id=$6 AND user_id=$7 RETURNING *`,
+    [creditor || null, description || null, total_amount || null, due_date || null, paid !== undefined ? paid : null, req.params.id, req.userId]
+  );
+  if (!row) return res.status(404).json({ error: 'Não encontrado' });
+  res.json(row);
+});
+
+app.delete('/api/debts/:id', authMiddleware, async (req, res) => {
+  await q('DELETE FROM debts WHERE id=$1 AND user_id=$2', [req.params.id, req.userId]);
+  res.json({ ok: true });
+});
+
+app.get('/api/debts/:id/payments', authMiddleware, async (req, res) => {
+  const payments = await getAll(
+    'SELECT * FROM debt_payments WHERE debt_id=$1 ORDER BY date DESC, created_at DESC',
+    [req.params.id]
+  );
+  res.json(payments);
+});
+
+app.post('/api/debts/:id/payments', authMiddleware, async (req, res) => {
+  const { amount, date, notes } = req.body;
+  if (!amount || !date) return res.status(400).json({ error: 'Valor e data são obrigatórios' });
+  // Verify debt belongs to user
+  const debt = await getOne('SELECT * FROM debts WHERE id=$1 AND user_id=$2', [req.params.id, req.userId]);
+  if (!debt) return res.status(404).json({ error: 'Dívida não encontrada' });
+  const payment = await getOne(
+    'INSERT INTO debt_payments (debt_id, amount, date, notes) VALUES ($1,$2,$3,$4) RETURNING *',
+    [req.params.id, amount, date, notes || null]
+  );
+  // Auto-mark as paid if paid_amount >= total_amount
+  const totPaid = await getOne('SELECT COALESCE(SUM(amount),0) as total FROM debt_payments WHERE debt_id=$1', [req.params.id]);
+  if (parseFloat(totPaid.total) >= parseFloat(debt.total_amount)) {
+    await q('UPDATE debts SET paid=1 WHERE id=$1', [req.params.id]);
+  }
+  res.json(payment);
+});
+
+app.delete('/api/debts/payments/:paymentId', authMiddleware, async (req, res) => {
+  // Verify ownership via debt
+  const payment = await getOne(
+    'SELECT p.* FROM debt_payments p JOIN debts d ON p.debt_id=d.id WHERE p.id=$1 AND d.user_id=$2',
+    [req.params.paymentId, req.userId]
+  );
+  if (!payment) return res.status(404).json({ error: 'Não encontrado' });
+  await q('UPDATE debts SET paid=0 WHERE id=$1', [payment.debt_id]);
+  await q('DELETE FROM debt_payments WHERE id=$1', [req.params.paymentId]);
+  res.json({ ok: true });
 });
 
 // Start server
