@@ -98,7 +98,6 @@ async function initDB() {
       last_generated TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
-  `);
 
     CREATE TABLE IF NOT EXISTS debts (
       id SERIAL PRIMARY KEY,
@@ -119,6 +118,7 @@ async function initDB() {
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
+  `);
   console.log('✅ Banco de dados inicializado');
 }
 
